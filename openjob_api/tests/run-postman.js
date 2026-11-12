@@ -66,6 +66,7 @@ async function runTests() {
         {
           collection: collectionPath,
           environment: environmentPath,
+          envVar: [{ key: 'port', value: String(port) }],
           folder: folders,
           reporters: ['cli'],
           bail: false,

@@ -5,11 +5,18 @@ Lanjutan OpenJob RESTful API Versi 1 untuk submission akhir kelas **Belajar Back
 
 1. **Unggah berkas CV/Resume (PDF)** dengan `multer` — validasi MIME type `application/pdf` dan ukuran maksimal 5 MB, nama berkas disimpan di tabel `documents`, berkas dapat ditampilkan kembali (`GET /documents/:id`).
 2. **Caching Redis** selama 1 jam untuk detail company, user, lamaran, daftar lamaran per user/job, dan daftar bookmark. Response dari cache memiliki header `X-Data-Source: cache` (dari database: `X-Data-Source: database`). Cache dihapus setiap ada perubahan data terkait.
-3. **Message queue RabbitMQ** — setiap lamaran baru mengirim message `{ "application_id": "..." }`. Program consumer terpisah (`src/consumer.js`) mengambil data dari database lalu mengirim email (Nodemailer) ke **pemilik lowongan** berisi email pelamar, nama pelamar, dan tanggal lamaran.
+3. **Message queue RabbitMQ** — setiap lamaran baru mengirim message `{ "application_id": "..." }`. Project consumer terpisah (`openjob_consumer`) mengambil data dari database lalu mengirim email (Nodemailer) ke **pemilik lowongan** berisi email pelamar, nama pelamar, dan tanggal lamaran.
 
 Pengujian Postman V2: **164 requests, 398 assertions, 0 gagal** (seluruh folder kecuali Documents) dan folder **[Mandatory] Documents** lulus seluruhnya saat diuji dengan berkas manual.
 
 ---
+
+## 📁 Struktur Project
+
+Dua project independen, masing-masing dengan `package.json` dan `.env` sendiri, berkomunikasi lewat RabbitMQ:
+
+- `openjob_api/` — RESTful API (Express, PostgreSQL, Redis, publisher RabbitMQ).
+- `openjob_consumer/` — Consumer App (consumer RabbitMQ + Nodemailer).
 
 ## 🛠️ Teknologi
 
@@ -31,7 +38,7 @@ Node.js, Express 4, PostgreSQL (`pg`, `node-pg-migrate`), Joi, JWT, bcrypt, **mu
 
 ## ⚙️ Environment (`.env`)
 
-Salin `.env.example` menjadi `.env`, lalu sesuaikan:
+Salin `.env.example` menjadi `.env` di **masing-masing** project (`openjob_api` dan `openjob_consumer`), lalu sesuaikan. `MAIL_*` hanya dipakai consumer; JWT dan Redis hanya dipakai API:
 
 ```env
 # PostgreSQL & JWT (sama seperti versi 1)
@@ -65,10 +72,16 @@ MAIL_PASSWORD=<password SMTP>
 ## 📦 Menjalankan Aplikasi
 
 ```bash
+# Terminal 1 - RESTful API (port 3000)
+cd openjob_api
 npm install
 npm run migrate:up
-npm start                # RESTful API (port 3000)
-npm run start:consumer   # program consumer RabbitMQ -> email (terminal terpisah)
+npm start
+
+# Terminal 2 - consumer RabbitMQ -> email
+cd openjob_consumer
+npm install
+npm start
 ```
 
 Contoh menjalankan Redis & RabbitMQ portable di Windows:
@@ -86,10 +99,11 @@ $env:ERLANG_HOME = "C:\Program Files\Erlang OTP"; .\sbin\rabbitmq-server.bat
 ## 🧪 Pengujian
 
 ```bash
+cd openjob_api
 npm test
 ```
 
-[`tests/run-postman.js`](tests/run-postman.js) membersihkan tabel PostgreSQL dan cache Redis, menjalankan server, lalu menjalankan koleksi `Postman/[271] OpenJob API Test V2.postman_collection.json` dengan Newman **tanpa folder [Mandatory] Documents** (folder tersebut membutuhkan upload berkas manual).
+[`tests/run-postman.js`](openjob_api/tests/run-postman.js) membersihkan tabel PostgreSQL dan cache Redis, menjalankan server, lalu menjalankan koleksi `Postman/[271] OpenJob API Test V2.postman_collection.json` dengan Newman **tanpa folder [Mandatory] Documents** (folder tersebut membutuhkan upload berkas manual).
 
 Pengujian folder **[Mandatory] Documents** dilakukan manual di Postman: pilih berkas `.txt`/`.jpg` pada request *Upload Document with Non-PDF File* dan berkas PDF (≤ 5 MB) pada *Upload Document with Valid PDF*. Folder ini login sebagai `john@example.com`, jadi jalankan setelah folder Authentications (atau setelah `npm test`).
 

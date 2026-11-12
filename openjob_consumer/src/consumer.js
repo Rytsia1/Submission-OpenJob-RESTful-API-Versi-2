@@ -6,8 +6,20 @@ const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 const amqp = require('amqplib');
 const nodemailer = require('nodemailer');
-const pool = require('./config/database');
-const { AMQP_URL, APPLICATION_QUEUE } = require('./config/rabbitmq');
+const { Pool } = require('pg');
+
+// Pool membaca PGUSER, PGPASSWORD, PGHOST, PGPORT, PGDATABASE dari environment
+const pool = new Pool();
+
+const {
+  RABBITMQ_HOST,
+  RABBITMQ_PORT = 5672,
+  RABBITMQ_USER = 'guest',
+  RABBITMQ_PASSWORD = 'guest',
+} = process.env;
+const AMQP_URL = `amqp://${encodeURIComponent(RABBITMQ_USER)}:${encodeURIComponent(RABBITMQ_PASSWORD)}@${RABBITMQ_HOST}:${RABBITMQ_PORT}`;
+// Harus sama dengan nama queue di openjob_api/src/config/rabbitmq.js
+const APPLICATION_QUEUE = 'application:created';
 
 const transporter = nodemailer.createTransport({
   host: process.env.MAIL_HOST,
